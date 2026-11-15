@@ -1,8 +1,7 @@
-import re
+﻿import re
 from typing import List
 from config import MAX_CHAR_LIMIT
 
-# Matches standard Latin punctuation (., !, ?) as well as Devanagari Danda (।, ॥) and CJK sentence endings
 SENTENCE_END_PATTERN = re.compile(r'(?<=[.!?।॥。！？])\s+')
 
 
@@ -13,14 +12,10 @@ def _split_into_sentences(text: str) -> List[str]:
 
 
 def chunk_page_text(page_text: str, max_chars: int = MAX_CHAR_LIMIT) -> List[str]:
-    """
-    Splits a single page's text into chunks strictly <= max_chars.
-    Splits at the last complete sentence boundary before max_chars.
-    """
+    """Splits a single text block into chunks <= max_chars at sentence boundaries."""
     cleaned_text = page_text.strip()
     if not cleaned_text:
         return []
-
     if len(cleaned_text) <= max_chars:
         return [cleaned_text]
 
@@ -29,12 +24,10 @@ def chunk_page_text(page_text: str, max_chars: int = MAX_CHAR_LIMIT) -> List[str
     current_chunk = ""
 
     for sentence in sentences:
-        # Handle edge case where a single sentence itself exceeds max_chars
         if len(sentence) > max_chars:
             if current_chunk:
                 chunks.append(current_chunk.strip())
                 current_chunk = ""
-            # Hard-split oversized sentence at the last space before max_chars
             words = sentence.split(" ")
             temp_part = ""
             for word in words:
@@ -48,7 +41,6 @@ def chunk_page_text(page_text: str, max_chars: int = MAX_CHAR_LIMIT) -> List[str
                 current_chunk = temp_part
             continue
 
-        # Check if adding the next sentence stays within the limit
         candidate = f"{current_chunk} {sentence}".strip() if current_chunk else sentence
         if len(candidate) <= max_chars:
             current_chunk = candidate
@@ -62,18 +54,72 @@ def chunk_page_text(page_text: str, max_chars: int = MAX_CHAR_LIMIT) -> List[str
     return chunks
 
 
-def chunk_document_pages(pages: List[str], max_chars: int = MAX_CHAR_LIMIT) -> List[dict]:
+def chunk_document_pages(
+    pages: List[tuple[int, str]], max_chars: int = MAX_CHAR_LIMIT
+) -> List[dict]:
     """
-    Processes all extracted pages and returns a list of chunk dictionaries
-    containing page metadata and sentence-aligned text chunks.
+    Combines consecutive pages into full sentence-aligned chunks up to max_chars
+    to minimize total API requests on large documents while tracking page ranges.
     """
     all_chunks = []
-    for page_idx, page_text in enumerate(pages, start=1):
-        page_chunks = chunk_page_text(page_text, max_chars=max_chars)
-        for chunk_idx, chunk_text in enumerate(page_chunks, start=1):
+    buffer_text = ""
+    start_page = None
+    end_page = None
+    chunk_counter = 1
+
+    for page_num, page_text in pages:
+        cleaned = page_text.strip()
+        if not cleaned:
+            continue
+
+        if len(cleaned) > max_chars:
+            if buffer_text:
+                label = f"{start_page}" if start_page == end_page else f"{start_page}-{end_page}"
+                all_chunks.append({
+                    "page_num": label,
+                    "chunk_num": chunk_counter,
+                    "text": buffer_text.strip(),
+                })
+                chunk_counter += 1
+                buffer_text = ""
+                start_page = None
+                end_page = None
+
+            for sub_chunk in chunk_page_text(cleaned, max_chars=max_chars):
+                all_chunks.append({
+                    "page_num": str(page_num),
+                    "chunk_num": chunk_counter,
+                    "text": sub_chunk,
+                })
+                chunk_counter += 1
+            continue
+
+        separator = "\n\n" if buffer_text else ""
+        candidate = f"{buffer_text}{separator}{cleaned}"
+
+        if len(candidate) <= max_chars:
+            if start_page is None:
+                start_page = page_num
+            end_page = page_num
+            buffer_text = candidate
+        else:
+            label = f"{start_page}" if start_page == end_page else f"{start_page}-{end_page}"
             all_chunks.append({
-                "page_num": page_idx,
-                "chunk_num": chunk_idx,
-                "text": chunk_text,
+                "page_num": label,
+                "chunk_num": chunk_counter,
+                "text": buffer_text.strip(),
             })
+            chunk_counter += 1
+            start_page = page_num
+            end_page = page_num
+            buffer_text = cleaned
+
+    if buffer_text:
+        label = f"{start_page}" if start_page == end_page else f"{start_page}-{end_page}"
+        all_chunks.append({
+            "page_num": label,
+            "chunk_num": chunk_counter,
+            "text": buffer_text.strip(),
+        })
+
     return all_chunks
