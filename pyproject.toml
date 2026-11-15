@@ -1,0 +1,16 @@
+[project]
+name = "my-translator"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "deep-translator>=1.11.4",
+    "fpdf2>=2.7.9",
+    "pillow>=10.0.0",
+    "pymupdf>=1.24.0",
+    "pytesseract>=0.3.10",
+    "python-docx>=1.1.0",
+    "streamlit>=1.35.0",
+    "uharfbuzz>=0.39.0",
+]
