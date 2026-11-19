@@ -1,5 +1,5 @@
-# Safe character limit below Google Translate web's 5,000-character threshold
-MAX_CHAR_LIMIT = 4800
+# Safe character limit per chunk (prevents Google spam triggers and URL-length errors)
+MAX_CHAR_LIMIT = 1800
 
 # Supported upload file extensions
 SUPPORTED_EXTENSIONS = ["pdf", "docx", "txt", "png", "jpg", "jpeg", "webp"]
@@ -24,12 +24,9 @@ LANGUAGES = {
     "Bengali": ("bn", "ben"),
     "Tamil": ("ta", "tam"),
     "Telugu": ("te", "tel"),
-    "Kannada":("ka","kan")
 }
 
-# Path to Unicode font for multi-language PDF export
-UNICODE_FONT_PATH = "assets/NotoSans-Regular.ttf"
-
+# Maps Google Translate target language codes to script-specific Unicode fonts
 DEFAULT_FONT_PATH = "assets/NotoSans-Regular.ttf"
 
 TARGET_FONTS = {

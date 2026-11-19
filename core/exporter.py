@@ -1,5 +1,6 @@
 import io
 import os
+import re
 from docx import Document
 from fpdf import FPDF
 from config import DEFAULT_FONT_PATH, TARGET_FONTS
@@ -80,3 +81,24 @@ def generate_export_file(
         return export_to_pdf(translated_text, target_lang=target_lang), "pdf", "application/pdf"
     else:
         raise ValueError(f"Unsupported export format: {export_format}")
+
+def _clean_pdf_line_breaks(text: str) -> str:
+    """
+    Merges artificial mid-sentence line breaks from PDF extraction into flowing
+    paragraphs while preserving bullet points, headings, and blank lines.
+    """
+    lines = text.splitlines()
+    merged = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            merged.append("")
+            continue
+        # Keep bullet points, numbered items, or code lines on new lines
+        if re.match(r"^(\•|\-|\*|\d+[\.\)]|import |from |CREATE |SELECT )", stripped):
+            merged.append(stripped)
+        elif merged and merged[-1] and not merged[-1].endswith((".", "!", "?", ":", ";", "।")):
+            merged[-1] = f"{merged[-1]} {stripped}"
+        else:
+            merged.append(stripped)
+    return "\n".join(merged)
